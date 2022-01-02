@@ -1,0 +1,30 @@
+[
+	{
+		"name": "Citronnier #1",
+		"path": "/citronnier_1",
+		"gpio": 8,
+		"chip": 0,
+		"duration": 10
+	},
+	{
+		"name": "Citronnier #2",
+		"path": "/citronnier_2",
+		"gpio": 9,
+		"chip": 0,
+		"duration": 6
+	},
+	{
+		"name": "Citronnier #3",
+		"path": "/citronnier_3",
+		"gpio": 10,
+		"chip": 0,
+		"duration": 4
+	},
+	{
+		"name": "Goyavier",
+		"path": "/goyavier",
+		"gpio": 20,
+		"chip": 0,
+		"duration": 8
+	}
+]
