@@ -1,30 +1,64 @@
-[
-	{
-		"name": "Citronnier #1",
-		"path": "/citronnier_1",
-		"gpio": 8,
-		"chip": 0,
-		"duration": 10
+{
+	"pump": {
+		"gpio": 1,
+		"chip": 0
 	},
-	{
-		"name": "Citronnier #2",
-		"path": "/citronnier_2",
-		"gpio": 9,
-		"chip": 0,
-		"duration": 6
-	},
-	{
-		"name": "Citronnier #3",
-		"path": "/citronnier_3",
-		"gpio": 10,
-		"chip": 0,
-		"duration": 4
-	},
-	{
-		"name": "Goyavier",
-		"path": "/goyavier",
-		"gpio": 20,
-		"chip": 0,
-		"duration": 8
-	}
-]
+	"plants": [
+		{
+			"name": "Citronnier #1",
+			"path": "/citronnier_1",
+			"gpio": 8,
+			"chip": 0,
+			"duration": 10
+		},
+		{
+			"name": "Citronnier #2",
+			"path": "/citronnier_2",
+			"gpio": 9,
+			"chip": 0,
+			"duration": 6
+		},
+		{
+			"name": "Citronnier #3",
+			"path": "/citronnier_3",
+			"gpio": 10,
+			"chip": 0,
+			"duration": 4
+		},
+		{
+			"name": "Goyavier",
+			"path": "/goyavier",
+			"gpio": 20,
+			"chip": 0,
+			"duration": 8
+		},
+		{
+			"name": "Cafeier",
+			"path": "/cafeier",
+			"gpio": 0,
+			"chip": 0,
+			"duration": 5
+		},
+		{
+			"name": "Peperomia Rotundifolia",
+			"path": "/peperomia_rotundifolia",
+			"gpio": 3,
+			"chip": 0,
+			"duration": 4
+		},
+		{
+			"name": "Spathiphyllum",
+			"path": "/spathiphyllum",
+			"gpio": 19,
+			"chip": 0,
+			"duration": 8
+		},
+		{
+			"name": "Schlumbergera",
+			"path": "/schlumbergera",
+			"gpio": 7,
+			"chip": 0,
+			"duration": 3
+		}
+	]
+}

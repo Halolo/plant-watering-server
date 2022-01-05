@@ -11,16 +11,25 @@ import (
 	"github.com/warthog618/gpiod"
 )
 
-type config struct {
+type gpio struct {
+	Chip int
+	Gpio int
+}
+
+type plant struct {
 	Name     string
 	Path     string
-	Chip     int
-	Gpio     int
 	Duration int
+	gpio
+}
+
+type config struct {
+	Pump   gpio
+	Plants []plant
 }
 
 type Relays struct {
-	conf  []config
+	conf  config
 	lines map[int]*gpiod.Line
 }
 
@@ -49,7 +58,12 @@ func New() *Relays {
 		chips = append(chips, chip)
 	}
 
-	for _, plant := range relays.conf {
+	relays.lines[relays.conf.Pump.Gpio], err = chips[relays.conf.Pump.Chip].RequestLine(relays.conf.Pump.Gpio, gpiod.AsOutput(1))
+	if err != nil {
+		log.Fatal("RequestLine failed: ", err)
+	}
+
+	for _, plant := range relays.conf.Plants {
 		log.Printf("%s: [chip %d] gpio %d\n", plant.Name, plant.Chip, plant.Gpio)
 		relays.lines[plant.Gpio], err = chips[plant.Chip].RequestLine(plant.Gpio, gpiod.AsOutput(1))
 		if err != nil {
@@ -69,7 +83,7 @@ func (r *Relays) Serve() {
 // Internal
 
 func (r *Relays) handler(w http.ResponseWriter, req *http.Request) {
-	for _, plant := range r.conf {
+	for _, plant := range r.conf.Plants {
 		if plant.Path == req.URL.Path {
 			log.Printf("Activating %q for %ds\n", plant.Name, plant.Duration)
 			go r.activate(plant.Gpio, time.Second*time.Duration(plant.Duration))
@@ -80,7 +94,9 @@ func (r *Relays) handler(w http.ResponseWriter, req *http.Request) {
 
 func (r *Relays) activate(line int, duration time.Duration) {
 	defer r.lines[line].SetValue(1)
+	defer r.lines[r.conf.Pump.Gpio].SetValue(1)
 
 	r.lines[line].SetValue(0)
+	r.lines[r.conf.Pump.Gpio].SetValue(0)
 	<-time.After(duration)
 }
