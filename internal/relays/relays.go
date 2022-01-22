@@ -12,7 +12,7 @@ import (
 )
 
 type gpio struct {
-	Chip int
+	Chip string
 	Gpio int
 }
 
@@ -29,13 +29,17 @@ type config struct {
 }
 
 type Relays struct {
-	conf  config
-	lines map[int]*gpiod.Line
+	conf     config
+	chips    map[string]*gpiod.Chip
+	lines    map[plant]*gpiod.Line
+	pump     *gpiod.Line
+	requests chan plant
 }
 
 func New() *Relays {
 	relays := &Relays{
-		lines: make(map[int]*gpiod.Line),
+		lines:    make(map[plant]*gpiod.Line),
+		requests: make(chan plant),
 	}
 
 	configFile, err := ioutil.ReadFile("api/plants.json")
@@ -48,24 +52,28 @@ func New() *Relays {
 		log.Fatal("Error during Unmarshal: ", err)
 	}
 
-	var chips []*gpiod.Chip
-	for c := 0; c < 2; c++ {
-		chip, err := gpiod.NewChip(fmt.Sprintf("gpiochip%d", c))
-		if err != nil {
-			log.Fatal("gpiod.NewChip failed: ", err)
-		}
+	chips := make(map[string]*gpiod.Chip)
 
-		chips = append(chips, chip)
+	chips[relays.conf.Pump.Chip], err = gpiod.NewChip(relays.conf.Pump.Chip)
+	if err != nil {
+		log.Fatal("gpiod.NewChip failed: ", err)
 	}
 
-	relays.lines[relays.conf.Pump.Gpio], err = chips[relays.conf.Pump.Chip].RequestLine(relays.conf.Pump.Gpio, gpiod.AsOutput(1))
+	relays.pump, err = chips[relays.conf.Pump.Chip].RequestLine(relays.conf.Pump.Gpio, gpiod.AsOutput(1))
 	if err != nil {
 		log.Fatal("RequestLine failed: ", err)
 	}
 
 	for _, plant := range relays.conf.Plants {
-		log.Printf("%s: [chip %d] gpio %d\n", plant.Name, plant.Chip, plant.Gpio)
-		relays.lines[plant.Gpio], err = chips[plant.Chip].RequestLine(plant.Gpio, gpiod.AsOutput(1))
+		if _, found := chips[plant.Chip]; !found {
+			chips[plant.Chip], err = gpiod.NewChip(plant.Chip)
+			if err != nil {
+				log.Fatal("gpiod.NewChip failed: ", err)
+			}
+		}
+
+		log.Printf("%s: [%s] gpio %d\n", plant.Name, plant.Chip, plant.Gpio)
+		relays.lines[plant], err = chips[plant.Chip].RequestLine(plant.Gpio, gpiod.AsOutput(1))
 		if err != nil {
 			log.Fatal("RequestLine failed: ", err)
 		}
@@ -77,26 +85,46 @@ func New() *Relays {
 }
 
 func (r *Relays) Serve() {
-	http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(":8080", nil)
+
+	for req := range r.requests {
+		r.activate(&req)
+	}
 }
 
 // Internal
 
 func (r *Relays) handler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		w.Header().Add("Allow", http.MethodPost)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	for _, plant := range r.conf.Plants {
 		if plant.Path == req.URL.Path {
-			log.Printf("Activating %q for %ds\n", plant.Name, plant.Duration)
-			go r.activate(plant.Gpio, time.Second*time.Duration(plant.Duration))
-			break
+			select {
+			case r.requests <- plant:
+			default:
+				err := fmt.Errorf("An action is already in progress")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				fmt.Fprint(w, err)
+				log.Println(err)
+			}
+			return
 		}
 	}
+
+	w.WriteHeader(http.StatusNotFound)
 }
 
-func (r *Relays) activate(line int, duration time.Duration) {
-	defer r.lines[line].SetValue(1)
-	defer r.lines[r.conf.Pump.Gpio].SetValue(1)
+func (r *Relays) activate(plant *plant) {
+	defer r.lines[*plant].SetValue(1)
+	defer r.pump.SetValue(1)
 
-	r.lines[line].SetValue(0)
-	r.lines[r.conf.Pump.Gpio].SetValue(0)
-	<-time.After(duration)
+	log.Printf("Activating %q for %ds\n", plant.Name, plant.Duration)
+
+	r.lines[*plant].SetValue(0)
+	r.pump.SetValue(0)
+	<-time.After(time.Duration(plant.Duration) * time.Second)
 }
